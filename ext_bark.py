@@ -16,4 +16,7 @@ def send_bark_notification(message):
     # 构造 Bark API URL
     title = "库街区自动签到任务"
     url = f"{bark_server_url}/{bark_device_key}/{title}/{message}"
-    requests.get(url)
+    try:
+        requests.get(url)
+    except Exception:
+        pass
