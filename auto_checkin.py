@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 from loguru import logger
 from pydantic import BaseModel, Field
-from ext_wechat import send_server3, send_wechat_notification
+from ext_notification import send_server3, send_wechat_notification
 
 
 class Response(BaseModel):

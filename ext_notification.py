@@ -62,7 +62,7 @@ def send_server3(message: str, title = "库街区自动签到任务"):
         None
     
     Note:
-        需要设置环境变量 SERVER3_SEND_KEY 或在 settings 中提供 server3_send_key
+        需要设置环境变量 SERVER3_SEND_KEY
     """
     # 优先从环境变量获取 Server酱3 发送密钥
     server3_send_key = os.getenv("SERVER3_SEND_KEY")
@@ -70,7 +70,7 @@ def send_server3(message: str, title = "库街区自动签到任务"):
     # 如果未设置发送密钥，记录警告并退出
     if not server3_send_key:
         logger.warning("未设置 Server酱3 的发送密钥，跳过通知发送。")
-        return False
+        return
     
     try:
         # 使用 Server酱3 SDK 发送通知
