@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 from loguru import logger
 from pydantic import BaseModel, Field
-from ext_wechat import send_wechat_notification
+from ext_wechat import send_server3, send_wechat_notification
 
 
 class Response(BaseModel):
@@ -287,6 +287,7 @@ def main():
     if all_results:
         notification_message = "\n".join(all_results)
         send_wechat_notification(notification_message)
+        send_server3(notification_message)
 
     if has_error:
         sys.exit(1)

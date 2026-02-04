@@ -3,6 +3,7 @@ import os  # 用于获取环境变量
 import json  # 用于JSON数据处理
 import requests  # 用于发送HTTP请求
 from loguru import logger  # 用于日志记录
+from serverchan_sdk import sc_send; 
 
 def send_wechat_notification(message, title="库街区自动签到任务"):
     """
@@ -48,3 +49,38 @@ def send_wechat_notification(message, title="库街区自动签到任务"):
     except Exception as e:
         # 捕获并记录所有可能的异常
         logger.error(f"发送通知时发生错误：{str(e)}")
+
+def send_server3(message: str, title = "库街区自动签到任务"):
+    """
+    通过 Server酱3 发送通知消息
+    
+    Args:
+        message (str): 消息内容
+        title (str): 消息标题
+    
+    Returns:
+        None
+    
+    Note:
+        需要设置环境变量 SERVER3_SEND_KEY 或在 settings 中提供 server3_send_key
+    """
+    # 优先从环境变量获取 Server酱3 发送密钥
+    server3_send_key = os.getenv("SERVER3_SEND_KEY")
+    
+    # 如果未设置发送密钥，记录警告并退出
+    if not server3_send_key:
+        logger.warning("未设置 Server酱3 的发送密钥，跳过通知发送。")
+        return False
+    
+    try:
+        # 使用 Server酱3 SDK 发送通知
+        response = sc_send(
+            server3_send_key,
+            title,
+            message,
+            {"tags": "Github Action|库街区"},
+        )
+        logger.debug("Server酱3 通知发送结果：{}", response)
+    except Exception as e:
+        # 捕获并记录所有可能的异常
+        logger.error("Server酱3 通知发送失败：{}", str(e))
