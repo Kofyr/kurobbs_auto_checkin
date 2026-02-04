@@ -18,11 +18,6 @@ class Response(BaseModel):
     data: Optional[Any] = Field(None, alias="data", description="请求成功才有")
 
 
-class KurobbsClientException(Exception):
-    """库街区客户端异常。"""
-    pass
-
-
 class KurobbsClient:
     FIND_ROLE_LIST_API_URL = "https://api.kurobbs.com/user/role/findRoleList"
     SIGN_URL = "https://api.kurobbs.com/encourage/signIn/v2"
@@ -37,8 +32,8 @@ class KurobbsClient:
     def __init__(self, token: str, account_name: str = "默认账号"):
         self.token = token
         self.account_name = account_name
-        self.result: Dict[str, str] = {}
-        self.exceptions: List[Exception] = []
+        self.success: List[str] = []
+        self.failures: List[str] = []
 
     def get_headers(self) -> Dict[str, str]:
         """获取API请求所需的请求头。"""
@@ -138,7 +133,6 @@ class KurobbsClient:
 
     def _process_sign_action(
         self,
-        action_name: str,
         action_method: Callable[[], Response],
         success_message: str,
         failure_message: str,
@@ -146,23 +140,21 @@ class KurobbsClient:
         """
         处理日常任务操作的通用逻辑。
 
-        :param action_name: 操作名称（用于存储结果）
         :param action_method: 操作的方法
         :param success_message: 执行任务成功时的消息
         :param failure_message: 执行任务失败时的消息
         """
         resp = action_method()
         if resp.success:
-            # 将API返回的msg添加到结果消息中
-            self.result[action_name] = f"{success_message}（{resp.msg}）"
+            # 将API返回的msg添加到成功消息中
+            self.success.append(f"{success_message}（{resp.msg}）")
         else:
-            # 将API返回的msg添加到错误消息中
-            self.exceptions.append(KurobbsClientException(f"{failure_message}（{resp.msg}）"))
+            # 将API返回的msg添加到失败消息中
+            self.failures.append(f"{failure_message}（{resp.msg}）")
 
     def start(self):
         # 执行奖励签到
         self._process_sign_action(
-            action_name="checkin",
             action_method=self.checkin,
             success_message="签到奖励签到成功",
             failure_message="签到奖励签到失败",
@@ -170,7 +162,6 @@ class KurobbsClient:
 
         # 执行社区签到
         self._process_sign_action(
-            action_name="sign_in",
             action_method=self.sign_in,
             success_message="社区签到成功",
             failure_message="社区签到失败",
@@ -180,7 +171,6 @@ class KurobbsClient:
 
         # 执行分享任务
         self._process_sign_action(
-            action_name="share",
             action_method=self.share_task,
             success_message="分享任务完成",
             failure_message="分享任务失败",
@@ -193,51 +183,62 @@ class KurobbsClient:
         if posts:
             # 随机选择5篇不同的帖子进行点赞
             like_posts = random.sample(posts, min(5, len(posts)))
+            like_success_count = 0
+            like_failure_count = 0
             for post in like_posts:
                 # 点赞帖子
-                self._process_sign_action(
-                    action_name=f"like_{post['postId']}",
-                    action_method=lambda: self.like_post(post, like_type=1),
-                    success_message=f"点赞帖子{post['postId']}完成",
-                    failure_message=f"点赞帖子{post['postId']}失败",
-                )
+                resp = self.like_post(post, like_type=1)
+                if resp.success:
+                    like_success_count += 1
+                else:
+                    like_failure_count += 1
+                    self.failures.append(f"点赞帖子{post['postId']}失败（{resp.msg}）")
                 # 添加3秒延迟
                 time.sleep(3)
 
                 # 取消点赞
-                self._process_sign_action(
-                    action_name=f"unlike_{post['postId']}",
-                    action_method=lambda: self.like_post(post, like_type=2),
-                    success_message=f"取消点赞帖子{post['postId']}完成",
-                    failure_message=f"取消点赞帖子{post['postId']}失败",
-                )
+                resp = self.like_post(post, like_type=2)
+                if resp.success:
+                    like_success_count += 1
+                else:
+                    like_failure_count += 1
+                    self.failures.append(f"取消点赞帖子{post['postId']}失败（{resp.msg}）")
                 # 添加3秒延迟
                 time.sleep(3)
+
+            # 输出点赞统计
+            if like_success_count > 0:
+                self.success.append(f"点赞任务成功{like_success_count}次")
+            if like_failure_count > 0:
+                self.failures.append(f"点赞任务失败{like_failure_count}次")
 
             # 随机选择3篇不同的帖子进行浏览
             view_posts = random.sample(posts, min(3, len(posts)))
+            view_success_count = 0
+            view_failure_count = 0
             for post in view_posts:
-                self._process_sign_action(
-                    action_name=f"view_{post['postId']}",
-                    action_method=lambda: self.view_post(post),
-                    success_message=f"浏览帖子{post['postId']}完成",
-                    failure_message=f"浏览帖子{post['postId']}失败",
-                )
+                resp = self.view_post(post)
+                if resp.success:
+                    view_success_count += 1
+                else:
+                    view_failure_count += 1
+                    self.failures.append(f"浏览帖子{post['postId']}失败（{resp.msg}）")
                 # 添加3秒延迟
                 time.sleep(3)
 
-        self._log()
+            # 输出浏览统计
+            if view_success_count > 0:
+                self.success.append(f"浏览任务成功{view_success_count}次")
+            if view_failure_count > 0:
+                self.failures.append(f"浏览任务失败{view_failure_count}次")
 
     @property
-    def msg(self):
-        return ", ".join(self.result.values()) + "!"
+    def success_msg(self):
+        return ", ".join(self.success) + "!" if self.success else ""
 
-    def _log(self):
-        """记录结果并抛出异常（如果有）。"""
-        if msg := self.msg:
-            logger.info(msg)
-        if self.exceptions:
-            raise KurobbsClientException(", ".join(map(str, self.exceptions)))
+    @property
+    def error_msg(self):
+        return ", ".join(self.failures) + "!" if self.failures else ""
 
 
 def configure_logger(debug: bool = False):
@@ -258,7 +259,8 @@ def main():
         ("账号2", os.getenv("TOKEN2"))
     ]
 
-    all_results = []
+    all_success = []
+    all_failures = []
     has_error = False
 
     # 遍历所有账号进行签到
@@ -270,22 +272,24 @@ def main():
         try:
             kurobbs = KurobbsClient(token=token, account_name=account_name)
             kurobbs.start()
-            if kurobbs.msg:
-                all_results.append(kurobbs.msg)
-        except KurobbsClientException as e:
-            error_msg = f"{account_name}签到失败：{str(e)}"
-            logger.error(error_msg, exc_info=False)
-            all_results.append(error_msg)
-            has_error = True
+            if kurobbs.success:
+                all_success.append(f"{account_name}：{kurobbs.success_msg}")
+            if kurobbs.failures:
+                all_failures.append(f"{account_name}：{kurobbs.error_msg}")
+                has_error = True
         except Exception as e:
-            error_msg = f"{account_name}发生未知错误：{str(e)}"
-            logger.error(error_msg)
-            all_results.append(error_msg)
+            all_failures.append(f"{account_name}签到失败：{str(e)}")
             has_error = True
 
+    # 输出结果
+    if all_success:
+        logger.info("\n".join(all_success))
+    if all_failures:
+        logger.error("\n".join(all_failures))
+
     # 发送通知
-    if all_results:
-        notification_message = "\n".join(all_results)
+    notification_message = "\n\n".join(all_success + all_failures)
+    if notification_message:
         send_wechat_notification(notification_message)
         send_server3(notification_message)
 
